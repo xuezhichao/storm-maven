@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+log:
+  path: ../log
+  level: INFO
+
+hbase:
+  master: t1-24-13:60000
+  zookeeper:
+    quorum: t1-24-15,t1-24-14,t1-24-13
+    property:
+      clientPort: 2181
+zookeeper:
+  znode:
+    parent: /hbase-unsecure
