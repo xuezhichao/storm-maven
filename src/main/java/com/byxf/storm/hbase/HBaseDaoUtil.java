@@ -74,53 +74,6 @@ public class HBaseDaoUtil {
     }
 
     /**
-     * @Descripton: 根据条件过滤查询
-     * @param obj
-     * @param param
-     * @Date: 2018/3/26
-     */
-    public <T> List<T> queryScan(T obj, Map<String, String> param)throws Exception{
-        List<T> objs = new ArrayList<T>();
-        String tableName = getORMTable(obj);
-        if (StringUtils.isBlank(tableName)) {
-            return null;
-        }
-        try (Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin();){
-            if(!admin.isTableAvailable(TableName.valueOf(tableName))){
-                return objs;
-            }
-            Scan scan = new Scan();
-            for (Map.Entry<String, String> entry : param.entrySet()){
-                Class<?> clazz = obj.getClass();
-                Field[] fields = clazz.getDeclaredFields();
-                for (Field field : fields) {
-                    if (!field.isAnnotationPresent(HbaseColumn.class)) {
-                        continue;
-                    }
-                    field.setAccessible(true);
-                    HbaseColumn orm = field.getAnnotation(HbaseColumn.class);
-                    String family = orm.family();
-                    String qualifier = orm.qualifier();
-                    if(qualifier.equals(entry.getKey())){
-                        Filter filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(entry.getKey()), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(entry.getValue()));
-                        scan.setFilter(filter);
-                    }
-                }
-            }
-            ResultScanner scanner = table.getScanner(scan);
-            for (Result result : scanner) {
-                T beanClone = (T) BeanUtils.cloneBean(HBaseBeanUtil.resultToBean(result, obj));
-                objs.add(beanClone);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            logger.error("查询失败！");
-            throw new Exception(e);
-        }
-        return objs;
-    }
-
-    /**
      * @Descripton: 根据rowkey查询
      * @param obj
      * @param rowkeys
@@ -409,6 +362,53 @@ public class HBaseDaoUtil {
                     if(qualifier.equals(entry.getKey())){
 //                        Filter filter = new ColumnPrefixFilter(Bytes.toBytes(entry.getKey()));
                         Filter filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(entry.getKey()), CompareFilter.CompareOp.GREATER_OR_EQUAL, Bytes.toBytes(entry.getValue()));
+                        scan.setFilter(filter);
+                    }
+                }
+            }
+            ResultScanner scanner = table.getScanner(scan);
+            for (Result result : scanner) {
+                T beanClone = (T) BeanUtils.cloneBean(HBaseBeanUtil.resultToBean(result, obj));
+                objs.add(beanClone);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("查询失败！");
+            throw new Exception(e);
+        }
+        return objs;
+    }
+
+    /**
+     * @Descripton: 根据条件过滤查询
+     * @param obj
+     * @param param
+     * @Date: 2018/3/26
+     */
+    public <T> List<T> queryScan(T obj, Map<String, String> param)throws Exception{
+        List<T> objs = new ArrayList<T>();
+        String tableName = getORMTable(obj);
+        if (StringUtils.isBlank(tableName)) {
+            return null;
+        }
+        try (Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin();){
+            if(!admin.isTableAvailable(TableName.valueOf(tableName))){
+                return objs;
+            }
+            Scan scan = new Scan();
+            for (Map.Entry<String, String> entry : param.entrySet()){
+                Class<?> clazz = obj.getClass();
+                Field[] fields = clazz.getDeclaredFields();
+                for (Field field : fields) {
+                    if (!field.isAnnotationPresent(HbaseColumn.class)) {
+                        continue;
+                    }
+                    field.setAccessible(true);
+                    HbaseColumn orm = field.getAnnotation(HbaseColumn.class);
+                    String family = orm.family();
+                    String qualifier = orm.qualifier();
+                    if(qualifier.equals(entry.getKey())){
+                        Filter filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(entry.getKey()), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(entry.getValue()));
                         scan.setFilter(filter);
                     }
                 }
