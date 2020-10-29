@@ -41,4 +41,8 @@ public class DemoService {
         return demoDao.getByColumnPrefix(demo, id);
     }
 
+    public ResultScanner queryScanAndColumn(Demo demo, String columnPrefix) throws Exception {
+        return demoDao.queryScanAndColumn(demo, columnPrefix);
+    }
+
 }

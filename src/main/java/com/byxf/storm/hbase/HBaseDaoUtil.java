@@ -4,10 +4,7 @@ import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
-import org.apache.hadoop.hbase.filter.CompareFilter;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
+import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -465,6 +462,13 @@ public class HBaseDaoUtil {
     }
 
 
+    /**
+     * description: 列名前缀模糊查询
+     * create time: 2020/10/29 16:20
+     * * @Param: null
+     *
+     * @return
+     */
     public <T> ResultScanner queryScanColumnName(T obj, String columnPrefix)throws Exception{
         List<T> objs = new ArrayList<T>();
         String tableName = getORMTable(obj);
@@ -487,5 +491,95 @@ public class HBaseDaoUtil {
         }
     }
 
+
+
+    /**
+     * 根据rowkey查询记录
+     * @param obj
+     * @param rowkey
+     * @param <T>
+     * @return
+     */
+    public <T> List<T> queryScanRowkeyAndColumn(T obj, String rowkey, String columnPrefix){
+        List<T> objs = new ArrayList<T>();
+        String tableName = getORMTable(obj);
+        if (StringUtils.isBlank(tableName)) {
+            return null;
+        }
+        ResultScanner scanner = null;
+        try (Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin()){
+            Scan scan = new Scan();
+            scan.setRowPrefixFilter(Bytes.toBytes(rowkey));
+            scanner = table.getScanner(scan);
+            Filter filter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
+            scan.setFilter(filter);
+            for (Result result : scanner) {
+                T beanClone = (T) BeanUtils.cloneBean(HBaseBeanUtil.resultToBean(result, obj));
+                objs.add(beanClone);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            logger.error("queryScanRowkey:查询失败！", e);
+        }finally {
+            if(scanner!=null){
+                try {
+                    scanner.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    logger.error("queryScan:关闭流异常！", e);
+                }
+            }
+        }
+        return objs;
+    }
+
+
+    /**
+     * @Descripton: 根据条件过滤查询
+     * @param obj
+     * @param param
+     * @Date: 2018/3/26
+     */
+    public <T> ResultScanner queryScanAndColumn(T obj, Map<String, String> param, String columnPrefix)throws Exception{
+//        List<T> objs = new ArrayList<T>();
+        String tableName = getORMTable(obj);
+        if (StringUtils.isBlank(tableName)) {
+            return null;
+        }
+        try (Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin();){
+            if(!admin.isTableAvailable(TableName.valueOf(tableName))){
+                return null;
+            }
+            Scan scan = new Scan();
+            for (Map.Entry<String, String> entry : param.entrySet()){
+                Class<?> clazz = obj.getClass();
+                Field[] fields = clazz.getDeclaredFields();
+                for (Field field : fields) {
+                    if (!field.isAnnotationPresent(HbaseColumn.class)) {
+                        continue;
+                    }
+                    field.setAccessible(true);
+                    HbaseColumn orm = field.getAnnotation(HbaseColumn.class);
+                    String family = orm.family();
+                    String qualifier = orm.qualifier();
+                    if(qualifier.equals(entry.getKey())){
+                        List<Filter> filters = new ArrayList<>();
+                        Filter filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(entry.getKey()), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(entry.getValue()));
+                        Filter columnFilter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
+                        filters.add(filter);
+                        filters.add(columnFilter);
+                        FilterList filterList = new FilterList(filters);
+                        scan.setFilter(filterList);
+                    }
+                }
+            }
+            ResultScanner scanner = table.getScanner(scan);
+           return scanner;
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("查询失败！");
+            throw new Exception(e);
+        }
+    }
 
 }

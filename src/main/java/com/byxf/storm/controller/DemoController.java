@@ -43,6 +43,15 @@ public class DemoController {
     }
 
 
+    @GetMapping("/queryScanAndColumn/{columnPrefix}")
+    public void queryScanAndColumn(@PathVariable String columnPrefix) throws Exception {
+        ResultScanner apples = demoService.queryScanAndColumn(new Demo(), columnPrefix);
+        for(Result result:apples){
+            showCell(result);
+        }
+    }
+
+
     public static void showCell(Result result){
         Cell[] cells = result.rawCells();
         for(Cell cell:cells){

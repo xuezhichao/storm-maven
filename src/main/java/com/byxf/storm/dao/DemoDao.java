@@ -5,7 +5,10 @@ import com.byxf.storm.hbase.HBaseDaoUtil;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component("demoDao")
 public class DemoDao {
@@ -24,5 +27,11 @@ public class DemoDao {
 
     public ResultScanner getByColumnPrefix(Demo demo, String id) throws Exception {
         return hBaseDaoUtil.queryScanColumnName(demo, id);
+    }
+
+    public ResultScanner queryScanAndColumn(Demo demo, String columnPrefix) throws Exception {
+        Map map = new HashMap();
+        map.put("avg","123");
+        return hBaseDaoUtil.queryScanAndColumn(demo,map, columnPrefix);
     }
 }
