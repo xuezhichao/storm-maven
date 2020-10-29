@@ -32,7 +32,7 @@ public class HconnectionFactory implements InitializingBean {
     @Value("${zookeeper.znode.parent}")
     private String znode;
 
-    private static Configuration conf = HBaseConfiguration.create();
+    public static Configuration conf = HBaseConfiguration.create();
 
     public static Connection connection;
 

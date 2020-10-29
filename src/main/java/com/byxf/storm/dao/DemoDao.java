@@ -32,6 +32,19 @@ public class DemoDao {
     public ResultScanner queryScanAndColumn(Demo demo, String columnPrefix) throws Exception {
         Map map = new HashMap();
         map.put("avg","123");
+        map.put("content","123");
         return hBaseDaoUtil.queryScanAndColumn(demo,map, columnPrefix);
+    }
+
+    public ResultScanner statistics(Demo demo, String columnPrefix) throws Exception {
+        Map map = new HashMap();
+        map.put("avg","123");
+        map.put("content","123");
+        return hBaseDaoUtil.statistics(demo,map, columnPrefix);
+    }
+
+
+    public Long rowCountByCoprocessor(String tableName){
+        return hBaseDaoUtil.rowCountByCoprocessor(tableName);
     }
 }

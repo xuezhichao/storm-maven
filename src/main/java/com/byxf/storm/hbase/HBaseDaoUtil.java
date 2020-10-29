@@ -2,8 +2,11 @@ package com.byxf.storm.hbase;
 
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.time.StopWatch;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.coprocessor.AggregationClient;
+import org.apache.hadoop.hbase.client.coprocessor.LongColumnInterpreter;
 import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.LoggerFactory;
@@ -551,6 +554,7 @@ public class HBaseDaoUtil {
                 return null;
             }
             Scan scan = new Scan();
+            FilterList filterList = null;
             for (Map.Entry<String, String> entry : param.entrySet()){
                 Class<?> clazz = obj.getClass();
                 Field[] fields = clazz.getDeclaredFields();
@@ -568,11 +572,11 @@ public class HBaseDaoUtil {
                         Filter columnFilter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
                         filters.add(filter);
                         filters.add(columnFilter);
-                        FilterList filterList = new FilterList(filters);
-                        scan.setFilter(filterList);
+                        filterList = new FilterList(filters);
                     }
                 }
             }
+            scan.setFilter(filterList);
             ResultScanner scanner = table.getScanner(scan);
            return scanner;
         } catch (Exception e) {
@@ -581,5 +585,92 @@ public class HBaseDaoUtil {
             throw new Exception(e);
         }
     }
+
+
+    /**
+     * @Descripton: 统计长度
+     * @param obj
+     * @param param
+     * @Date: 2018/3/26
+     */
+    public <T> ResultScanner statistics(T obj, Map<String, String> param, String columnPrefix)throws Exception{
+//        List<T> objs = new ArrayList<T>();
+        String tableName = getORMTable(obj);
+        if (StringUtils.isBlank(tableName)) {
+            return null;
+        }
+        try (Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin();){
+            if(!admin.isTableAvailable(TableName.valueOf(tableName))){
+                return null;
+            }
+            Scan scan = new Scan();
+            FilterList filterList = null;
+            for (Map.Entry<String, String> entry : param.entrySet()){
+                Class<?> clazz = obj.getClass();
+                Field[] fields = clazz.getDeclaredFields();
+                for (Field field : fields) {
+                    if (!field.isAnnotationPresent(HbaseColumn.class)) {
+                        continue;
+                    }
+                    field.setAccessible(true);
+                    HbaseColumn orm = field.getAnnotation(HbaseColumn.class);
+                    String family = orm.family();
+                    String qualifier = orm.qualifier();
+                    if(qualifier.equals(entry.getKey())){
+                        List<Filter> filters = new ArrayList<>();
+                        Filter filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(entry.getKey()), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(entry.getValue()));
+                        Filter firstFilter = new FirstKeyOnlyFilter();
+//                        Filter columnFilter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
+                        filters.add(filter);
+                        filters.add(firstFilter);
+//                        filters.add(columnFilter);
+                        filterList = new FilterList(filters);
+                    }
+                }
+            }
+            scan.setFilter(filterList);
+            ResultScanner scanner = table.getScanner(scan);
+            return scanner;
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("查询失败！");
+            throw new Exception(e);
+        }
+    }
+
+    /**
+     * description: 统计数据长度
+     * create time: 2020/10/29 17:50
+     * @return
+     */
+    public Long rowCountByCoprocessor(String tablename){
+        try {
+            //提前创建connection和conf
+            Admin admin = HconnectionFactory.connection.getAdmin();
+            TableName name=TableName.valueOf(tablename);
+            //先disable表，添加协处理器后再enable表
+//            admin.disableTable(name);
+//            HTableDescriptor descriptor = admin.getTableDescriptor(name);
+//            String coprocessorClass = "org.apache.hadoop.hbase.coprocessor.AggregateImplementation";
+//            if (! descriptor.hasCoprocessor(coprocessorClass)) {
+//                descriptor.addCoprocessor(coprocessorClass);
+//            }
+//            admin.modifyTable(name, descriptor);
+//            admin.enableTable(name);
+//            //计时
+            StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
+            Scan scan = new Scan();
+            AggregationClient aggregationClient = new AggregationClient(HconnectionFactory.conf);
+//            System.out.println("RowCount: " + aggregationClient.rowCount(name, new LongColumnInterpreter(), scan));
+            stopWatch.stop();
+            System.out.println("统计耗时：" +stopWatch.getTime());
+            return aggregationClient.rowCount(name, new LongColumnInterpreter(), scan);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
 
 }

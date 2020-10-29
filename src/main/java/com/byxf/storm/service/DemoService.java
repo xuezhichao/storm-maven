@@ -45,4 +45,13 @@ public class DemoService {
         return demoDao.queryScanAndColumn(demo, columnPrefix);
     }
 
+    public ResultScanner statistics(Demo demo, String columnPrefix) throws Exception {
+        return demoDao.statistics(demo, columnPrefix);
+    }
+
+
+    public Long rowCountByCoprocessor(String tableName){
+        return demoDao.rowCountByCoprocessor(tableName);
+    }
+
 }
