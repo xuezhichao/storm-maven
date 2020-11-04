@@ -11,7 +11,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class HBaseBeanUtil {
@@ -96,6 +98,21 @@ public class HBaseBeanUtil {
             setMethod.invoke(obj, new Object[] { value });
         }
         return obj;
+    }
+
+    public static <T> Map resultToMap(Result result, T obj) throws Exception {
+        Map<String,Object> res = new HashMap();
+        for(Cell cell : result.rawCells()){
+            res.put(new String(CellUtil.cloneQualifier(cell)),Bytes.toString(CellUtil.cloneValue(cell)));
+//            System.out.println(
+//                    "rowkey: " + new String(CellUtil.cloneRow(cell)) +
+//                            "\tfamilyColumn: " + new String(CellUtil.cloneFamily(cell)) +
+//                            "\tcolumn: " + new String(CellUtil.cloneQualifier(cell)) +
+//                            "\tvalue: " + Bytes.toLong(CellUtil.cloneValue(cell)) +
+//                            "\ttimestamp: " + cell.getTimestamp()
+//            );
+        }
+        return res;
     }
 
     private static String getResultValueByType(Result result, String family, String qualifier, boolean timeStamp) {

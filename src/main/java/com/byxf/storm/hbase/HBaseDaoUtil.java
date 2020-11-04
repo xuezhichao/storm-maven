@@ -11,7 +11,6 @@ import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.*;
@@ -263,7 +262,7 @@ public class HBaseDaoUtil {
     }
 
     // 获取tableName
-    private String getORMTable(Object obj) {
+    public String getORMTable(Object obj) {
         HbaseTable table = obj.getClass().getAnnotation(HbaseTable.class);
         return table.tableName();
     }
@@ -433,7 +432,7 @@ public class HBaseDaoUtil {
      * @param <T>
      * @return
      */
-    public <T> List<T> queryScanRowkey(T obj, String rowkey){
+    public <T> List<T> scanRowkeyPre(T obj, String rowkey){
         List<T> objs = new ArrayList<T>();
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
@@ -472,7 +471,7 @@ public class HBaseDaoUtil {
      *
      * @return
      */
-    public <T> ResultScanner queryScanColumnName(T obj, String columnPrefix)throws Exception{
+    public <T> List<Map> scanColPre(T obj, String columnPrefix)throws Exception{
         List<T> objs = new ArrayList<T>();
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
@@ -486,7 +485,7 @@ public class HBaseDaoUtil {
             Filter filter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
             scan.setFilter(filter);
             ResultScanner scanner = table.getScanner(scan);
-            return scanner;
+            return this.readScanner(obj,scanner);
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("查询失败！");
@@ -494,16 +493,35 @@ public class HBaseDaoUtil {
         }
     }
 
-
+    /**
+     * description: 读取ResultScanner返回信息，返回map
+     * create time: 2020/11/4 10:18
+     */
+    public <T> List<Map> readScanner(T obj,ResultScanner scanner) throws Exception {
+        List ls = new ArrayList();
+        try {
+            for (Result result : scanner) {
+                Map map = new HashMap();
+                map = HBaseBeanUtil.resultToMap(result, obj);
+                ls.add(map);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }finally {
+            scanner.close();
+        }
+        return ls;
+    }
 
     /**
-     * 根据rowkey查询记录
+     * 根据rowkey钱难追和列前缀模糊查询记录
      * @param obj
      * @param rowkey
      * @param <T>
      * @return
      */
-    public <T> List<T> queryScanRowkeyAndColumn(T obj, String rowkey, String columnPrefix){
+    public <T> List<T> scanRowkeyPreAndColPre(T obj, String rowkey, String columnPrefix){
         List<T> objs = new ArrayList<T>();
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
@@ -512,8 +530,10 @@ public class HBaseDaoUtil {
         ResultScanner scanner = null;
         try (Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin()){
             Scan scan = new Scan();
+            //rowkey前缀模糊查询
             scan.setRowPrefixFilter(Bytes.toBytes(rowkey));
             scanner = table.getScanner(scan);
+            //列名前缀模糊查询
             Filter filter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
             scan.setFilter(filter);
             for (Result result : scanner) {
@@ -538,13 +558,12 @@ public class HBaseDaoUtil {
 
 
     /**
-     * @Descripton: 根据条件过滤查询
+     * @Descripton: 根据列值和列名称前缀模糊查询
      * @param obj
      * @param param
      * @Date: 2018/3/26
      */
-    public <T> ResultScanner queryScanAndColumn(T obj, Map<String, String> param, String columnPrefix)throws Exception{
-//        List<T> objs = new ArrayList<T>();
+    public <T> List<Map> scanValueAndColPre(T obj, Map<String, String> param, String columnPrefix)throws Exception{
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
             return null;
@@ -554,7 +573,7 @@ public class HBaseDaoUtil {
                 return null;
             }
             Scan scan = new Scan();
-            FilterList filterList = null;
+            FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ALL);
             for (Map.Entry<String, String> entry : param.entrySet()){
                 Class<?> clazz = obj.getClass();
                 Field[] fields = clazz.getDeclaredFields();
@@ -568,17 +587,18 @@ public class HBaseDaoUtil {
                     String qualifier = orm.qualifier();
                     if(qualifier.equals(entry.getKey())){
                         List<Filter> filters = new ArrayList<>();
+                        //列值模糊查询
                         Filter filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(entry.getKey()), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(entry.getValue()));
+                        //列名称前缀模糊查询
                         Filter columnFilter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
-                        filters.add(filter);
-                        filters.add(columnFilter);
-                        filterList = new FilterList(filters);
+                        filterList.addFilter(filter);
+                        filterList.addFilter(columnFilter);
                     }
                 }
             }
             scan.setFilter(filterList);
             ResultScanner scanner = table.getScanner(scan);
-           return scanner;
+           return this.readScanner(obj,scanner);
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("查询失败！");
@@ -588,13 +608,12 @@ public class HBaseDaoUtil {
 
 
     /**
-     * @Descripton: 统计长度
+     * @Descripton: 统计符合条件的数据，每行返回第一列数据
      * @param obj
      * @param param
      * @Date: 2018/3/26
      */
-    public <T> ResultScanner statistics(T obj, Map<String, String> param, String columnPrefix)throws Exception{
-//        List<T> objs = new ArrayList<T>();
+    public <T> List<Map> firstKeyOnlyFilter(T obj)throws Exception{
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
             return null;
@@ -604,33 +623,12 @@ public class HBaseDaoUtil {
                 return null;
             }
             Scan scan = new Scan();
-            FilterList filterList = null;
-            for (Map.Entry<String, String> entry : param.entrySet()){
-                Class<?> clazz = obj.getClass();
-                Field[] fields = clazz.getDeclaredFields();
-                for (Field field : fields) {
-                    if (!field.isAnnotationPresent(HbaseColumn.class)) {
-                        continue;
-                    }
-                    field.setAccessible(true);
-                    HbaseColumn orm = field.getAnnotation(HbaseColumn.class);
-                    String family = orm.family();
-                    String qualifier = orm.qualifier();
-                    if(qualifier.equals(entry.getKey())){
-                        List<Filter> filters = new ArrayList<>();
-                        Filter filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(entry.getKey()), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(entry.getValue()));
-                        Filter firstFilter = new FirstKeyOnlyFilter();
-//                        Filter columnFilter = new ColumnPrefixFilter(Bytes.toBytes(columnPrefix));
-                        filters.add(filter);
-                        filters.add(firstFilter);
-//                        filters.add(columnFilter);
-                        filterList = new FilterList(filters);
-                    }
-                }
-            }
+            FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ALL);
+            Filter firstFilter = new FirstKeyOnlyFilter();
+            filterList.addFilter(firstFilter);
             scan.setFilter(filterList);
             ResultScanner scanner = table.getScanner(scan);
-            return scanner;
+            return this.readScanner(obj,scanner);
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("查询失败！");
@@ -644,33 +642,34 @@ public class HBaseDaoUtil {
      * @return
      */
     public Long rowCountByCoprocessor(String tablename){
-        try {
-            //提前创建connection和conf
-            Admin admin = HconnectionFactory.connection.getAdmin();
+        try (Admin admin = HconnectionFactory.connection.getAdmin();){
             TableName name=TableName.valueOf(tablename);
+            if(!admin.isTableAvailable(name)){
+                return null;
+            }
+                //提前创建connection和conf
             //先disable表，添加协处理器后再enable表
-//            admin.disableTable(name);
-//            HTableDescriptor descriptor = admin.getTableDescriptor(name);
-//            String coprocessorClass = "org.apache.hadoop.hbase.coprocessor.AggregateImplementation";
-//            if (! descriptor.hasCoprocessor(coprocessorClass)) {
-//                descriptor.addCoprocessor(coprocessorClass);
-//            }
-//            admin.modifyTable(name, descriptor);
-//            admin.enableTable(name);
-//            //计时
+            HTableDescriptor descriptor = admin.getTableDescriptor(name);
+            String coprocessorClass = "org.apache.hadoop.hbase.coprocessor.AggregateImplementation";
+            if (! descriptor.hasCoprocessor(coprocessorClass)) {
+                admin.disableTable(name);
+                descriptor.addCoprocessor(coprocessorClass);
+                admin.modifyTable(name, descriptor);
+                admin.enableTable(name);
+            }
+            //计时
             StopWatch stopWatch = new StopWatch();
             stopWatch.start();
             Scan scan = new Scan();
             AggregationClient aggregationClient = new AggregationClient(HconnectionFactory.conf);
-//            System.out.println("RowCount: " + aggregationClient.rowCount(name, new LongColumnInterpreter(), scan));
+            Long totles = aggregationClient.rowCount(name, new LongColumnInterpreter(), scan);
             stopWatch.stop();
             System.out.println("统计耗时：" +stopWatch.getTime());
-            return aggregationClient.rowCount(name, new LongColumnInterpreter(), scan);
+            return totles;
         } catch (Throwable e) {
             e.printStackTrace();
         }
         return null;
     }
-
 
 }

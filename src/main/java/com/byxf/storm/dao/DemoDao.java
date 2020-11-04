@@ -6,7 +6,6 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,33 +15,25 @@ public class DemoDao {
     @Autowired
     private HBaseDaoUtil hBaseDaoUtil;
 
-
     public void save(Demo demo) {
         hBaseDaoUtil.save(demo);
     }
 
-    public List<Demo> getById(Demo demo, String id) {
-        return hBaseDaoUtil.queryScanRowkey(demo, id);
+    public List<Demo> scanRowkeyPre(Demo demo, String id) {
+        return hBaseDaoUtil.scanRowkeyPre(demo, id);
     }
 
-    public ResultScanner getByColumnPrefix(Demo demo, String id) throws Exception {
-        return hBaseDaoUtil.queryScanColumnName(demo, id);
+    public List<Map> scanColPre(Demo demo, String id) throws Exception {
+        return hBaseDaoUtil.scanColPre(demo, id);
     }
 
-    public ResultScanner queryScanAndColumn(Demo demo, String columnPrefix) throws Exception {
-        Map map = new HashMap();
-        map.put("avg","123");
-        map.put("content","123");
-        return hBaseDaoUtil.queryScanAndColumn(demo,map, columnPrefix);
+    public List<Map> scanValueAndColPre(Demo demo,Map param, String columnPrefix) throws Exception {
+        return hBaseDaoUtil.scanValueAndColPre(demo,param, columnPrefix);
     }
 
-    public ResultScanner statistics(Demo demo, String columnPrefix) throws Exception {
-        Map map = new HashMap();
-        map.put("avg","123");
-        map.put("content","123");
-        return hBaseDaoUtil.statistics(demo,map, columnPrefix);
+    public List<Map> firstKeyOnlyFilter(Demo demo) throws Exception {
+        return hBaseDaoUtil.firstKeyOnlyFilter(demo);
     }
-
 
     public Long rowCountByCoprocessor(String tableName){
         return hBaseDaoUtil.rowCountByCoprocessor(tableName);
