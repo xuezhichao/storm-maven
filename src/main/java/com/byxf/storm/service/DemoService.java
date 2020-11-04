@@ -2,7 +2,6 @@ package com.byxf.storm.service;
 
 import com.byxf.storm.dao.DemoDao;
 import com.byxf.storm.entity.Demo;
-import org.apache.hadoop.hbase.client.ResultScanner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -39,7 +38,7 @@ public class DemoService {
      * create time: 2020/10/30 11:51
      * @return
      */
-    public List<Map> scanColPre(Demo demo, String id) throws Exception {
+    public List<Map<String,Object>> scanColPre(Demo demo, String id) throws Exception {
         return demoDao.scanColPre(demo, id);
     }
 
@@ -47,7 +46,7 @@ public class DemoService {
      * description: 根据列值、列名前缀模糊匹配
      * create time: 2020/10/30 11:57
      */
-    public List<Map> scanValueAndColPre(Demo demo, Map param,String columnPrefix) throws Exception {
+    public List<Map<String,Object>> scanValueAndColPre(Demo demo, Map param,String columnPrefix) throws Exception {
         return demoDao.scanValueAndColPre(demo,param, columnPrefix);
     }
 
@@ -55,7 +54,7 @@ public class DemoService {
      * description: 返回每条数据的第一个kv，用于count，计算总数，速度快
      * create time: 2020/10/30 11:59
      */
-    public List<Map> firstKeyOnlyFilter(Demo demo) throws Exception {
+    public List<Map<String,Object>> firstKeyOnlyFilter(Demo demo) throws Exception {
         return demoDao.firstKeyOnlyFilter(demo);
     }
 

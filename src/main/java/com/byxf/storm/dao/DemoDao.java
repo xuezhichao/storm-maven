@@ -23,15 +23,15 @@ public class DemoDao {
         return hBaseDaoUtil.scanRowkeyPre(demo, id);
     }
 
-    public List<Map> scanColPre(Demo demo, String id) throws Exception {
+    public List<Map<String,Object>> scanColPre(Demo demo, String id) throws Exception {
         return hBaseDaoUtil.scanColPre(demo, id);
     }
 
-    public List<Map> scanValueAndColPre(Demo demo,Map param, String columnPrefix) throws Exception {
+    public List<Map<String,Object>> scanValueAndColPre(Demo demo,Map param, String columnPrefix) throws Exception {
         return hBaseDaoUtil.scanValueAndColPre(demo,param, columnPrefix);
     }
 
-    public List<Map> firstKeyOnlyFilter(Demo demo) throws Exception {
+    public List<Map<String,Object>> firstKeyOnlyFilter(Demo demo) throws Exception {
         return hBaseDaoUtil.firstKeyOnlyFilter(demo);
     }
 

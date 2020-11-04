@@ -471,7 +471,7 @@ public class HBaseDaoUtil {
      *
      * @return
      */
-    public <T> List<Map> scanColPre(T obj, String columnPrefix)throws Exception{
+    public <T> List<Map<String,Object>> scanColPre(T obj, String columnPrefix)throws Exception{
         List<T> objs = new ArrayList<T>();
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
@@ -497,11 +497,11 @@ public class HBaseDaoUtil {
      * description: 读取ResultScanner返回信息，返回map
      * create time: 2020/11/4 10:18
      */
-    public <T> List<Map> readScanner(T obj,ResultScanner scanner) throws Exception {
+    public <T> List<Map<String,Object>> readScanner(T obj,ResultScanner scanner) throws Exception {
         List ls = new ArrayList();
         try {
             for (Result result : scanner) {
-                Map map = new HashMap();
+                Map<String,Object> map = new HashMap();
                 map = HBaseBeanUtil.resultToMap(result, obj);
                 ls.add(map);
             }
@@ -509,7 +509,14 @@ public class HBaseDaoUtil {
             e.printStackTrace();
             throw e;
         }finally {
-            scanner.close();
+            if(scanner!=null){
+                try {
+                    scanner.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    logger.error("queryScan:关闭流异常！", e);
+                }
+            }
         }
         return ls;
     }
@@ -563,7 +570,7 @@ public class HBaseDaoUtil {
      * @param param
      * @Date: 2018/3/26
      */
-    public <T> List<Map> scanValueAndColPre(T obj, Map<String, String> param, String columnPrefix)throws Exception{
+    public <T> List<Map<String,Object>> scanValueAndColPre(T obj, Map<String, String> param, String columnPrefix)throws Exception{
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
             return null;
@@ -613,17 +620,17 @@ public class HBaseDaoUtil {
      * @param param
      * @Date: 2018/3/26
      */
-    public <T> List<Map> firstKeyOnlyFilter(T obj)throws Exception{
+    public <T> List<Map<String,Object>> firstKeyOnlyFilter(T obj)throws Exception{
         String tableName = getORMTable(obj);
         if (StringUtils.isBlank(tableName)) {
             return null;
         }
-        try (Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin();){
+        try(Table table = HconnectionFactory.connection.getTable(TableName.valueOf(tableName)); Admin admin = HconnectionFactory.connection.getAdmin();){
             if(!admin.isTableAvailable(TableName.valueOf(tableName))){
                 return null;
             }
             Scan scan = new Scan();
-            FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ALL);
+            FilterList filterList = new FilterList();
             Filter firstFilter = new FirstKeyOnlyFilter();
             filterList.addFilter(firstFilter);
             scan.setFilter(filterList);
